@@ -1,0 +1,14 @@
+{
+  "name": "fetchor",
+  "version": "1.0.0",
+  "main": "src/index.js",
+  "scripts": { "start": "node src/index.js" },
+  "type": "module",
+  "dependencies": {
+    "@x402/core": "^2.28.0",
+    "@x402/evm": "^2.28.0",
+    "@x402/express": "^2.28.0",
+    "express": "^5.3.0",
+    "rss-parser": "^3.13.0"
+  }
+}
