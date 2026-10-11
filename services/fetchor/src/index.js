@@ -9,9 +9,11 @@ import { createWalletClient, http, publicActions } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { base } from "viem/chains";
 import { parseFeed } from "./feed.js";
+import { requestLogger } from "./logger.js";
 
 const app = express();
 app.use(express.json());
+app.use(requestLogger("fetchor"));
 
 const PORT = process.env.PORT || 3000;
 const PAY_TO = process.env.PAY_TO || "0x7754DfCEBaA2E5c562aA42c67C5A6E7EDF5b5b81";
