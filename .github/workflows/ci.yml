@@ -14,3 +14,14 @@ jobs:
       - name: Install ${{ matrix.service }}
         run: npm ci --omit=dev
         working-directory: services/${{ matrix.service }}
+
+  install-check-agent:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install demo agent
+        run: npm ci
+        working-directory: agents/demo
