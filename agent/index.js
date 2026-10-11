@@ -8,6 +8,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import { base } from "viem/chains";
 import { tools } from "./tools.js";
 import * as readline from "readline";
+import { writeFileSync } from "fs";
 
 if (!process.env.WALLET_PRIVATE_KEY) throw new Error("WALLET_PRIVATE_KEY is required");
 if (!process.env.OPENROUTER_API_KEY) throw new Error("OPENROUTER_API_KEY is required");
@@ -56,8 +57,10 @@ async function callService(name, args) {
   const data = await res.json();
   if (name === "screenshot_url" && data.image) {
     const { image, ...meta } = data;
-    process.stdout.write("done\n");
-    return { ...meta, note: "Image captured (base64 omitted)" };
+    const filename = `screenshot-${Date.now()}.png`;
+    writeFileSync(filename, Buffer.from(image, "base64"));
+    process.stdout.write(`saved → ${filename}\n`);
+    return { ...meta, saved_as: filename };
   }
   process.stdout.write("done\n");
   return data;
