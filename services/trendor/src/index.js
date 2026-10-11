@@ -105,9 +105,17 @@ app.get("/health", (_req, res) => res.json({ status: "ok", service: "trendor", v
 app.get("/llms.txt", (_req, res) => {
   res.type("text/plain").send(`# Trendor
 
-> Use this to get Google Trends interest-over-time data for any keyword.
+> Use this when you need to understand how search interest in a topic has changed over time.
 
-Trendor returns Google Trends data — interest timeline, peak value, and current interest for any keyword. Costs ${PRICE} USDC per request via x402 on Base mainnet. No account required.
+Trendor returns Google Trends data — interest timeline (0–100), peak, and current interest score for any keyword. No account required.
+
+## When to use
+
+- Need to know if a topic is trending up or down → use Trendor
+- Need to compare relative search interest over time → use Trendor
+- Need absolute search volume numbers → Trendor returns relative scores (0–100), not raw counts
+- Supports geographic filtering by country code
+- Best for broad topics; very niche terms may return sparse data
 
 ## Endpoint
 
@@ -138,6 +146,17 @@ PayTo: ${PAY_TO}
 ## Pricing
 
 ${PRICE} USDC per request on Base mainnet via x402 protocol.
+
+## Automaton Suite
+
+Other services from the same provider (all x402, Base mainnet):
+
+- [Pricor](https://pricor-x402.fly.dev/llms.txt) — real-time crypto prices ($0.005)
+- [Rator](https://rator-x402.fly.dev/llms.txt) — fiat currency exchange rates ($0.003)
+- [Fetchor](https://fetchor-x402.fly.dev/llms.txt) — RSS/Atom feed reader ($0.002)
+- [Resolvor](https://resolvor-x402.fly.dev/llms.txt) — WHOIS domain lookup ($0.004)
+- [Extractor](https://extractor-x402.fly.dev/llms.txt) — web content extraction ($0.007)
+- [Snappor](https://snappor-x402.fly.dev/llms.txt) — webpage screenshots ($0.008)
 `);
 });
 
@@ -154,6 +173,70 @@ app.get("/", (_req, res) => {
     llms: "https://trendor-x402.fly.dev/llms.txt",
     inputSchema: { keyword: "string (required)", timeframe: "1m|3m|12m|5y (optional)", geo: "string (optional)" },
     outputSchema: { keyword: "string", peak: "number", current: "number", trend: "array" },
+  });
+});
+
+app.get("/.well-known/x402.json", (_req, res) => {
+  res.json({
+    x402Version: 2,
+    host: "trendor-x402.fly.dev",
+    resources: [{
+      url: "https://trendor-x402.fly.dev/trends",
+      description: "Google Trends interest-over-time data for any keyword — timeline, peak, and current score.",
+      accepts: [{ scheme: "exact", network: "eip155:8453", amount: "15000", asset: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", payTo: PAY_TO }],
+    }],
+  });
+});
+
+app.get("/.well-known/ai-plugin.json", (_req, res) => {
+  res.json({
+    schema_version: "v1",
+    name_for_human: "Trendor",
+    name_for_model: "trendor",
+    description_for_human: "Google Trends interest-over-time data. $0.015 USDC per request via x402.",
+    description_for_model:
+      "Use trendor when you need to understand how search interest in a topic has changed over time. " +
+      "POST /trends with {keyword, timeframe, geo}. Returns relative interest scores (0–100) over time, peak, and current value. " +
+      "Supports timeframes: 1m, 3m, 12m, 5y. Supports geo filtering by ISO country code. " +
+      "Costs $0.015 USDC via x402 on Base mainnet.",
+    auth: { type: "none" },
+    api: { type: "openapi", url: "https://trendor-x402.fly.dev/openapi.json" },
+    contact_email: "matt@hook.melbourne",
+    legal_info_url: "https://trendor-x402.fly.dev/",
+  });
+});
+
+app.get("/openapi.json", (_req, res) => {
+  res.json({
+    openapi: "3.1.0",
+    info: { title: "Trendor", version: "1.0.0", description: "Google Trends interest-over-time data via x402 micropayment on Base mainnet." },
+    servers: [{ url: "https://trendor-x402.fly.dev" }],
+    paths: {
+      "/trends": {
+        post: {
+          summary: "Get Google Trends data",
+          description: "Returns interest-over-time scores (0–100), peak, and current value for a keyword. Requires $0.015 USDC x402 payment on Base mainnet.",
+          "x-payment": { scheme: "exact", network: "eip155:8453", amount: PRICE },
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { type: "object", required: ["keyword"], properties: {
+              keyword: { type: "string", description: "Search keyword or topic", example: "bitcoin" },
+              timeframe: { type: "string", description: "Time range: 1m | 3m | 12m | 5y (default: 12m)", example: "12m" },
+              geo: { type: "string", description: "ISO country code for geographic filter (default: worldwide)", example: "US" },
+            }}}},
+          },
+          responses: {
+            "200": { description: "Trends data", content: { "application/json": { schema: { type: "object", properties: {
+              keyword: { type: "string" }, geo: { type: "string" }, timeframe: { type: "string" },
+              peak: { type: "number" }, current: { type: "number" },
+              trend: { type: "array", items: { type: "object", properties: { date: { type: "string" }, value: { type: "number" } } } },
+            }}}}},
+            "402": { description: "Payment required — include x402 payment header" },
+            "422": { description: "Trends lookup failed" },
+          },
+        },
+      },
+    },
   });
 });
 

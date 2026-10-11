@@ -107,9 +107,16 @@ app.get("/health", (_req, res) => res.json({ status: "ok", service: "resolvor", 
 app.get("/llms.txt", (_req, res) => {
   res.type("text/plain").send(`# Resolvor
 
-> Use this to look up WHOIS domain registration data.
+> Use this when you need to check who owns a domain or when it expires.
 
-Resolvor queries WHOIS for any domain and returns registrar, creation date, expiry, nameservers, and status. Costs ${PRICE} USDC per request via x402 on Base mainnet. No account required.
+Resolvor queries WHOIS for any domain and returns registrar, creation date, expiry, nameservers, and registration status. No account required.
+
+## When to use
+
+- Need to know who registered a domain, or when it expires → use Resolvor
+- Need to check if a domain is available → Resolvor will show if it's registered and expiry date
+- Supports .com, .org, .net, .io, .co, and most country-code TLDs
+- Does not perform DNS lookups (for DNS use a dig service)
 
 ## Endpoint
 
@@ -123,7 +130,7 @@ PayTo: ${PAY_TO}
 { "domain": "example.com" }
 \`\`\`
 
-- \`domain\` (required): Domain name to look up
+- \`domain\` (required): Domain name to look up (e.g. example.com, not https://example.com)
 
 ## Output
 
@@ -141,6 +148,17 @@ PayTo: ${PAY_TO}
 ## Pricing
 
 ${PRICE} USDC per request on Base mainnet via x402 protocol.
+
+## Automaton Suite
+
+Other services from the same provider (all x402, Base mainnet):
+
+- [Pricor](https://pricor-x402.fly.dev/llms.txt) — real-time crypto prices ($0.005)
+- [Rator](https://rator-x402.fly.dev/llms.txt) — fiat currency exchange rates ($0.003)
+- [Fetchor](https://fetchor-x402.fly.dev/llms.txt) — RSS/Atom feed reader ($0.002)
+- [Trendor](https://trendor-x402.fly.dev/llms.txt) — Google Trends data ($0.015)
+- [Extractor](https://extractor-x402.fly.dev/llms.txt) — web content extraction ($0.007)
+- [Snappor](https://snappor-x402.fly.dev/llms.txt) — webpage screenshots ($0.008)
 `);
 });
 
@@ -157,6 +175,67 @@ app.get("/", (_req, res) => {
     llms: "https://resolvor-x402.fly.dev/llms.txt",
     inputSchema: { domain: "string (required)" },
     outputSchema: { domain: "string", registrar: "string", created: "string", expires: "string", nameservers: "array" },
+  });
+});
+
+app.get("/.well-known/x402.json", (_req, res) => {
+  res.json({
+    x402Version: 2,
+    host: "resolvor-x402.fly.dev",
+    resources: [{
+      url: "https://resolvor-x402.fly.dev/resolve",
+      description: "WHOIS domain lookup — registrar, creation date, expiry, nameservers, and status.",
+      accepts: [{ scheme: "exact", network: "eip155:8453", amount: "4000", asset: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", payTo: PAY_TO }],
+    }],
+  });
+});
+
+app.get("/.well-known/ai-plugin.json", (_req, res) => {
+  res.json({
+    schema_version: "v1",
+    name_for_human: "Resolvor",
+    name_for_model: "resolvor",
+    description_for_human: "WHOIS domain lookup. $0.004 USDC per request via x402.",
+    description_for_model:
+      "Use resolvor when you need to find out who registered a domain, when it expires, its nameservers, or registration status. " +
+      "POST /resolve with {domain}. Supports .com, .org, .net, .io, .co, and most ccTLDs. " +
+      "Costs $0.004 USDC via x402 on Base mainnet. Does not perform DNS lookups.",
+    auth: { type: "none" },
+    api: { type: "openapi", url: "https://resolvor-x402.fly.dev/openapi.json" },
+    contact_email: "matt@hook.melbourne",
+    legal_info_url: "https://resolvor-x402.fly.dev/",
+  });
+});
+
+app.get("/openapi.json", (_req, res) => {
+  res.json({
+    openapi: "3.1.0",
+    info: { title: "Resolvor", version: "1.0.0", description: "WHOIS domain lookup via x402 micropayment on Base mainnet." },
+    servers: [{ url: "https://resolvor-x402.fly.dev" }],
+    paths: {
+      "/resolve": {
+        post: {
+          summary: "WHOIS domain lookup",
+          description: "Returns registrar, creation date, expiry, nameservers, and status. Requires $0.004 USDC x402 payment on Base mainnet.",
+          "x-payment": { scheme: "exact", network: "eip155:8453", amount: PRICE },
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { type: "object", required: ["domain"], properties: {
+              domain: { type: "string", description: "Domain name to look up (e.g. example.com)", example: "example.com" },
+            }}}},
+          },
+          responses: {
+            "200": { description: "WHOIS data", content: { "application/json": { schema: { type: "object", properties: {
+              domain: { type: "string" }, registrar: { type: "string" }, created: { type: "string" },
+              expires: { type: "string" }, status: { type: "array", items: { type: "string" } },
+              nameservers: { type: "array", items: { type: "string" } },
+            }}}}},
+            "402": { description: "Payment required — include x402 payment header" },
+            "422": { description: "Domain not found or WHOIS lookup failed" },
+          },
+        },
+      },
+    },
   });
 });
 

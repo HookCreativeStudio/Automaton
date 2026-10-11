@@ -114,9 +114,17 @@ app.get("/health", (_req, res) => res.json({ status: "ok", service: "snappor", v
 app.get("/llms.txt", (_req, res) => {
   res.type("text/plain").send(`# Snappor
 
-> Use this to take a screenshot of any public URL.
+> Use this when you need a visual screenshot of a webpage.
 
-Snappor renders any public URL with a real Chromium browser and returns a base64-encoded PNG screenshot. Costs ${PRICE} USDC per request via x402 on Base mainnet. No account required.
+Snappor renders any public URL in a real Chromium browser and returns a base64-encoded PNG. Handles JavaScript-rendered content. No account required.
+
+## When to use
+
+- Need a visual capture of a webpage → use Snappor
+- Need to verify what a page looks like right now → use Snappor
+- Need clean readable text from a page → use Extractor instead (cheaper, no image)
+- Renders JavaScript; works on SPAs and dynamic pages
+- Does not work on login-gated pages
 
 ## Endpoint
 
@@ -151,6 +159,17 @@ The \`image\` field is a base64-encoded PNG. Decode and display or save as neede
 ## Pricing
 
 ${PRICE} USDC per request on Base mainnet via x402 protocol.
+
+## Automaton Suite
+
+Other services from the same provider (all x402, Base mainnet):
+
+- [Pricor](https://pricor-x402.fly.dev/llms.txt) — real-time crypto prices ($0.005)
+- [Rator](https://rator-x402.fly.dev/llms.txt) — fiat currency exchange rates ($0.003)
+- [Fetchor](https://fetchor-x402.fly.dev/llms.txt) — RSS/Atom feed reader ($0.002)
+- [Resolvor](https://resolvor-x402.fly.dev/llms.txt) — WHOIS domain lookup ($0.004)
+- [Trendor](https://trendor-x402.fly.dev/llms.txt) — Google Trends data ($0.015)
+- [Extractor](https://extractor-x402.fly.dev/llms.txt) — web content extraction ($0.007)
 `);
 });
 
@@ -167,6 +186,71 @@ app.get("/", (_req, res) => {
     llms: "https://snappor-x402.fly.dev/llms.txt",
     inputSchema: { url: "string (required)", width: "number (optional)", height: "number (optional)", fullPage: "boolean (optional)" },
     outputSchema: { image: "string (base64 PNG)", title: "string", url: "string", width: "number", height: "number" },
+  });
+});
+
+app.get("/.well-known/x402.json", (_req, res) => {
+  res.json({
+    x402Version: 2,
+    host: "snappor-x402.fly.dev",
+    resources: [{
+      url: "https://snappor-x402.fly.dev/snap",
+      description: "Full-page or viewport screenshot of any public URL using Chromium. Returns base64 PNG.",
+      accepts: [{ scheme: "exact", network: "eip155:8453", amount: "8000", asset: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", payTo: PAY_TO }],
+    }],
+  });
+});
+
+app.get("/.well-known/ai-plugin.json", (_req, res) => {
+  res.json({
+    schema_version: "v1",
+    name_for_human: "Snappor",
+    name_for_model: "snappor",
+    description_for_human: "Webpage screenshot service. $0.008 USDC per request via x402.",
+    description_for_model:
+      "Use snappor when you need a visual screenshot of a webpage. " +
+      "POST /snap with {url, width, height, fullPage}. Returns base64-encoded PNG. " +
+      "Renders JavaScript using Chromium, works on SPAs and dynamic pages. " +
+      "For text content use Extractor instead (cheaper). Costs $0.008 USDC via x402 on Base mainnet.",
+    auth: { type: "none" },
+    api: { type: "openapi", url: "https://snappor-x402.fly.dev/openapi.json" },
+    contact_email: "matt@hook.melbourne",
+    legal_info_url: "https://snappor-x402.fly.dev/",
+  });
+});
+
+app.get("/openapi.json", (_req, res) => {
+  res.json({
+    openapi: "3.1.0",
+    info: { title: "Snappor", version: "1.0.0", description: "Webpage screenshot service via x402 micropayment on Base mainnet." },
+    servers: [{ url: "https://snappor-x402.fly.dev" }],
+    paths: {
+      "/snap": {
+        post: {
+          summary: "Take webpage screenshot",
+          description: "Renders a URL in Chromium and returns a base64-encoded PNG. Requires $0.008 USDC x402 payment on Base mainnet.",
+          "x-payment": { scheme: "exact", network: "eip155:8453", amount: PRICE },
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { type: "object", required: ["url"], properties: {
+              url: { type: "string", description: "Public URL to screenshot", example: "https://example.com" },
+              width: { type: "number", description: "Viewport width in pixels (default: 1280)", example: 1280 },
+              height: { type: "number", description: "Viewport height in pixels (default: 800)", example: 800 },
+              fullPage: { type: "boolean", description: "Capture full scrollable page (default: false)", example: false },
+            }}}},
+          },
+          responses: {
+            "200": { description: "Screenshot", content: { "application/json": { schema: { type: "object", properties: {
+              image: { type: "string", description: "Base64-encoded PNG" },
+              title: { type: "string" }, url: { type: "string" },
+              width: { type: "number" }, height: { type: "number" }, full_page: { type: "boolean" },
+            }}}}},
+            "402": { description: "Payment required — include x402 payment header" },
+            "422": { description: "URL unreachable or render failed" },
+          },
+        },
+      },
+    },
   });
 });
 

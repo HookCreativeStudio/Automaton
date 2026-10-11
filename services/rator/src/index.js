@@ -105,9 +105,16 @@ app.get("/health", (_req, res) => res.json({ status: "ok", service: "rator", ver
 app.get("/llms.txt", (_req, res) => {
   res.type("text/plain").send(`# Rator
 
-> Use this to convert currencies and get live exchange rates.
+> Use this when you need to convert between fiat currencies or get an exchange rate.
 
-Rator returns real-time currency exchange rates via Frankfurter (ECB data) — rate, converted amount, and rate date. Costs ${PRICE} USDC per request via x402 on Base mainnet. No account required.
+Rator returns live currency exchange rates from the European Central Bank via Frankfurter — rate, converted amount, and rate date. No account required.
+
+## When to use
+
+- Need to convert USD to EUR, GBP to JPY, or any fiat pair → use Rator
+- Need crypto prices → use Pricor instead
+- Rates are ECB reference rates, updated daily (not live mid-market)
+- Supports ~170 currencies; does not support crypto
 
 ## Endpoint
 
@@ -137,6 +144,17 @@ PayTo: ${PAY_TO}
 ## Pricing
 
 ${PRICE} USDC per request on Base mainnet via x402 protocol.
+
+## Automaton Suite
+
+Other services from the same provider (all x402, Base mainnet):
+
+- [Pricor](https://pricor-x402.fly.dev/llms.txt) — real-time crypto prices ($0.005)
+- [Fetchor](https://fetchor-x402.fly.dev/llms.txt) — RSS/Atom feed reader ($0.002)
+- [Resolvor](https://resolvor-x402.fly.dev/llms.txt) — WHOIS domain lookup ($0.004)
+- [Trendor](https://trendor-x402.fly.dev/llms.txt) — Google Trends data ($0.015)
+- [Extractor](https://extractor-x402.fly.dev/llms.txt) — web content extraction ($0.007)
+- [Snappor](https://snappor-x402.fly.dev/llms.txt) — webpage screenshots ($0.008)
 `);
 });
 
@@ -153,6 +171,68 @@ app.get("/", (_req, res) => {
     llms: "https://rator-x402.fly.dev/llms.txt",
     inputSchema: { from: "string (required)", to: "string (required)", amount: "number (optional, default: 1)" },
     outputSchema: { from: "string", to: "string", rate: "number", amount: "number", converted: "number", date: "string" },
+  });
+});
+
+app.get("/.well-known/x402.json", (_req, res) => {
+  res.json({
+    x402Version: 2,
+    host: "rator-x402.fly.dev",
+    resources: [{
+      url: "https://rator-x402.fly.dev/rate",
+      description: "Fiat currency exchange rates from the European Central Bank via Frankfurter.",
+      accepts: [{ scheme: "exact", network: "eip155:8453", amount: "3000", asset: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", payTo: PAY_TO }],
+    }],
+  });
+});
+
+app.get("/.well-known/ai-plugin.json", (_req, res) => {
+  res.json({
+    schema_version: "v1",
+    name_for_human: "Rator",
+    name_for_model: "rator",
+    description_for_human: "Live fiat currency exchange rates. $0.003 USDC per request via x402.",
+    description_for_model:
+      "Use rator when you need to convert between fiat currencies or get an exchange rate. " +
+      "POST /rate with {from, to, amount}. Supports ~170 currencies (USD, EUR, GBP, JPY, AUD, etc.). " +
+      "ECB reference rates, updated daily. Does not support crypto. Costs $0.003 USDC via x402 on Base mainnet.",
+    auth: { type: "none" },
+    api: { type: "openapi", url: "https://rator-x402.fly.dev/openapi.json" },
+    contact_email: "matt@hook.melbourne",
+    legal_info_url: "https://rator-x402.fly.dev/",
+  });
+});
+
+app.get("/openapi.json", (_req, res) => {
+  res.json({
+    openapi: "3.1.0",
+    info: { title: "Rator", version: "1.0.0", description: "Fiat currency exchange rates via x402 micropayment on Base mainnet." },
+    servers: [{ url: "https://rator-x402.fly.dev" }],
+    paths: {
+      "/rate": {
+        post: {
+          summary: "Get currency exchange rate",
+          description: "Returns rate, converted amount, and rate date. ECB reference rates. Requires $0.003 USDC x402 payment on Base mainnet.",
+          "x-payment": { scheme: "exact", network: "eip155:8453", amount: PRICE },
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { type: "object", required: ["from", "to"], properties: {
+              from: { type: "string", description: "Source currency code", example: "USD" },
+              to: { type: "string", description: "Target currency code", example: "EUR" },
+              amount: { type: "number", description: "Amount to convert (default: 1)", example: 100 },
+            }}}},
+          },
+          responses: {
+            "200": { description: "Exchange rate data", content: { "application/json": { schema: { type: "object", properties: {
+              from: { type: "string" }, to: { type: "string" }, rate: { type: "number" },
+              amount: { type: "number" }, converted: { type: "number" }, date: { type: "string" },
+            }}}}},
+            "402": { description: "Payment required — include x402 payment header" },
+            "422": { description: "Currency not found or lookup failed" },
+          },
+        },
+      },
+    },
   });
 });
 
