@@ -17,6 +17,7 @@
     "linkedom": "^0.18.13",
     "mongoose": "^8.0.0",
     "openai": "^7.32.0",
-    "turndown": "^7.2.4"
+    "turndown": "^7.2.4",
+    "@coinbase/x402": "^2.1.0"
   }
 }

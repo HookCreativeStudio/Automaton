@@ -1,13 +1,9 @@
 import express from "express";
 import { paymentMiddleware, x402ResourceServer } from "@x402/express";
 import { ExactEvmScheme } from "@x402/evm/exact/server";
-import { ExactEvmScheme as ExactEvmFacilitatorScheme } from "@x402/evm/exact/facilitator";
-import { toFacilitatorEvmSigner } from "@x402/evm";
-import { x402Facilitator } from "@x402/core/facilitator";
 import { bazaarResourceServerExtension, declareDiscoveryExtension } from "@x402/extensions/bazaar";
-import { createWalletClient, http, publicActions } from "viem";
-import { privateKeyToAccount } from "viem/accounts";
-import { base } from "viem/chains";
+import { facilitator } from "@coinbase/x402";
+import { HTTPFacilitatorClient } from "@x402/core/http";
 import { getPrice } from "./price.js";
 import { requestLogger } from "./logger.js";
 
@@ -19,21 +15,9 @@ const PORT = process.env.PORT || 3000;
 const PAY_TO = process.env.PAY_TO || "0x7754DfCEBaA2E5c562aA42c67C5A6E7EDF5b5b81";
 const PRICE = process.env.PRICE || "$0.005";
 
-const account = privateKeyToAccount(process.env.FACILITATOR_PRIVATE_KEY);
-const walletClient = createWalletClient({
-  account,
-  chain: base,
-  transport: http(process.env.BASE_RPC_URL || "https://mainnet.base.org"),
-}).extend(publicActions);
-Object.assign(walletClient, { address: account.address });
+const facilitatorClient = new HTTPFacilitatorClient(facilitator);
 
-const signer = toFacilitatorEvmSigner(walletClient);
-const localFacilitator = new x402Facilitator().register(
-  "eip155:8453",
-  new ExactEvmFacilitatorScheme(signer)
-);
-
-const resourceServer = new x402ResourceServer(localFacilitator)
+const resourceServer = new x402ResourceServer(facilitatorClient)
   .register("eip155:8453", new ExactEvmScheme())
   .registerExtension(bazaarResourceServerExtension);
 
@@ -240,5 +224,5 @@ app.get("/openapi.json", (_req, res) => {
 app.listen(PORT, () => {
   console.log(`Pricor running on port ${PORT}`);
   console.log(`Payments → ${PAY_TO} at ${PRICE}/request on Base`);
-  console.log(`Facilitator wallet: ${account.address}`);
+  console.log(`Facilitator: CDP`);
 });
