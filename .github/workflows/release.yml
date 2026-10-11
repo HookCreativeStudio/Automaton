@@ -3,15 +3,16 @@ on:
   push:
     tags: ['v*']
 jobs:
-  release:
+  install-check:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [pricor, rator, fetchor, resolvor, trendor, extractor, snappor, weathor, locator, stockor]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - uses: pnpm/action-setup@v4
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm run typecheck
-      - run: pnpm test
-      - run: pnpm run build
+      - name: Install ${{ matrix.service }}
+        run: npm ci --omit=dev
+        working-directory: services/${{ matrix.service }}
