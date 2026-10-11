@@ -1,65 +1,121 @@
-# Extractor
+# Automaton
 
-An autonomous x402 micropayment service that fetches any public URL and returns clean, structured content. Deployed on Fly.io, paid in USDC on Base mainnet — no accounts, no API keys for callers.
+Ten live data services for AI agents, each paid per-request in USDC on Base mainnet via the [x402 protocol](https://x402.org). No API keys. No accounts. No subscriptions. Fund a wallet once, call any service immediately.
 
-## What it does
+## The pitch
 
-`POST /extract` accepts a URL and optional format, strips ads/nav/boilerplate using Mozilla Readability, and returns one of:
+Every other agent toolkit requires a different API key for every data source. Automaton requires none. Payment is a single HTTP header, signed by a wallet the agent controls. A new agent can call all ten services with one environment variable.
 
-| Format | Output | Cost |
-|--------|--------|------|
-| `markdown` | Full article as clean Markdown | $0.007 USDC |
-| `summary` | 2-3 sentence summary (Claude Haiku) | $0.007 USDC |
-| `json` | Structured data — title, author, date, topics, key_points, sentiment | $0.007 USDC |
+## Services
 
-## Usage
+| Service | Endpoint | What it returns | Price |
+|---------|----------|-----------------|-------|
+| [Pricor](https://pricor-x402.fly.dev) | `POST /price` | Real-time crypto prices (CoinGecko) | $0.005 |
+| [Stockor](https://stockor-x402.fly.dev) | `POST /stock` | Stock and ETF quotes (NYSE, NASDAQ) | $0.004 |
+| [Rator](https://rator-x402.fly.dev) | `POST /rate` | Fiat currency exchange rates | $0.003 |
+| [Weathor](https://weathor-x402.fly.dev) | `POST /weather` | Current weather and 7-day forecasts | $0.003 |
+| [Resolvor](https://resolvor-x402.fly.dev) | `POST /whois` | WHOIS domain lookup | $0.004 |
+| [Fetchor](https://fetchor-x402.fly.dev) | `POST /feed` | RSS and Atom feed reader | $0.002 |
+| [Locator](https://locator-x402.fly.dev) | `POST /locate` | IP address geolocation | $0.002 |
+| [Trendor](https://trendor-x402.fly.dev) | `POST /trends` | Google Trends data | $0.015 |
+| [Extractor](https://extractor-x402.fly.dev) | `POST /extract` | Web content extraction to Markdown | $0.007 |
+| [Snappor](https://snappor-x402.fly.dev) | `POST /snapshot` | Webpage screenshots | $0.008 |
 
-Any x402-capable agent or client pays automatically via ERC-3009 authorization on Base mainnet:
+Every service exposes:
+- `GET /llms.txt` - machine-readable description for AI agents
+- `GET /.well-known/x402.json` - payment manifest for Bazaar/discovery
+- `GET /.well-known/ai-plugin.json` - OpenAI plugin format
+- `GET /openapi.json` - OpenAPI 3.1 spec
+- `GET /health` - health check
 
-```bash
-# Without x402 client (returns 402 with payment instructions)
-curl -X POST https://extractor-x402.fly.dev/extract \
-  -H "Content-Type: application/json" \
-  -d '{"url": "https://example.com/article", "format": "markdown"}'
+## How payment works
+
+Standard HTTP, one extra header. When a client calls a service without payment:
+
+```
+HTTP 402 Payment Required
+X-Payment-Required: {"scheme":"exact","network":"eip155:8453","amount":"5000",...}
 ```
 
-Payments go directly to `0x7754DfCEBaA2E5c562aA42c67C5A6E7EDF5b5b81` on Base.
+The x402 client library signs an ERC-3009 authorization with the caller's wallet and retries. The service verifies on-chain and responds. The whole round trip adds one network hop.
+
+```js
+import { wrapFetchWithPayment } from "@x402/fetch";
+import { createWalletClient, http } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
+import { base } from "viem/chains";
+
+const wallet = createWalletClient({
+  account: privateKeyToAccount(process.env.WALLET_PRIVATE_KEY),
+  chain: base,
+  transport: http(),
+});
+
+const fetch = wrapFetchWithPayment(globalThis.fetch, wallet);
+
+// Payment is automatic from here
+const res = await fetch("https://stockor-x402.fly.dev/stock", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ symbol: "AAPL" }),
+});
+```
+
+The wallet needs USDC on Base mainnet. A few dollars covers thousands of calls.
+
+## Running a service locally
+
+Each service is a standalone Node.js app. Example using Stockor:
+
+```bash
+cd services/stockor
+npm install
+
+export FACILITATOR_PRIVATE_KEY=0x...   # Base mainnet wallet for settlement
+export MONGO_URI=mongodb+srv://...      # Optional: request logging
+npm start
+```
+
+The `FACILITATOR_PRIVATE_KEY` wallet needs a small amount of Base ETH for gas (a few cents covers months of traffic). Payments are received by the `PAY_TO` address hardcoded in each service's `index.js` -- change it to your own wallet before deploying.
+
+## Deploying your own instance
+
+```bash
+cd services/stockor
+flyctl apps create your-stockor
+flyctl ips allocate-v4 --shared --app your-stockor
+flyctl secrets set FACILITATOR_PRIVATE_KEY=0x... --app your-stockor
+flyctl deploy --ha=false
+```
+
+Replace the `PAY_TO` address and `fly.toml` app name with your own before deploying.
+
+## Adding a service
+
+Each service follows the same structure:
+
+```
+services/your-service/
+  src/
+    index.js      # Express app, x402 middleware, all discovery endpoints
+    your-logic.js # The actual data fetch
+    logger.js     # MongoDB request logging (copy from any other service)
+  package.json
+  Dockerfile
+  fly.toml
+```
+
+The `index.js` pattern is identical across all services: wire up `paymentMiddleware`, define the route, add `llms.txt` / `x402.json` / `ai-plugin.json` / `openapi.json`. Copy any existing service and swap the logic.
 
 ## Stack
 
 - **Runtime**: Node.js 22, Express 5
-- **Payment**: [@x402/express](https://www.npmjs.com/package/@x402/express) — x402 protocol middleware
-- **Facilitator**: Local on-chain (viem + Base mainnet RPC) — settles ERC-3009 USDC transfers
-- **Extraction**: [@mozilla/readability](https://github.com/mozilla/readability) + [linkedom](https://github.com/WebReflection/linkedom) + [Turndown](https://github.com/mixmark-io/turndown)
-- **AI formats**: [Claude Haiku via OpenRouter](https://openrouter.ai) (summary/json only)
-- **Deploy**: [Fly.io](https://fly.io) — `iad` region, 256 MB, always-on
+- **Payment**: [@x402/express](https://www.npmjs.com/package/@x402/express)
+- **Chain**: Base mainnet (eip155:8453), USDC
+- **Facilitator**: Local on-chain via [viem](https://viem.sh)
+- **Deploy**: [Fly.io](https://fly.io)
+- **Discovery**: [Agent Bazaar](https://bazaar.saylorinnovations.com)
 
-## Running locally
+## License
 
-```bash
-npm install
-
-# Required secrets
-export FACILITATOR_PRIVATE_KEY=0x...   # wallet with Base ETH for gas
-export OPENROUTER_API_KEY=sk-or-...    # only needed for summary/json formats
-export PAY_TO=0x...                    # USDC destination wallet
-
-npm start
-```
-
-## Deployment
-
-```bash
-flyctl deploy --ha=false
-```
-
-Secrets managed via `flyctl secrets set KEY=value`.
-
-## Endpoints
-
-| Path | Description |
-|------|-------------|
-| `POST /extract` | Main extraction endpoint (x402 payment required) |
-| `GET /` | Service info and schema |
-| `GET /health` | Health check |
-| `GET /llms.txt` | AI-readable service description |
+MIT
