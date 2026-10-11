@@ -1,4 +1,4 @@
-# Automaton Demo Agent
+# Automaton Agent
 
 A conversational agent that uses all ten Automaton services. Ask it anything about crypto prices, stocks, weather, currency rates, trending topics, domain info, IP locations, RSS feeds, or web content.
 
@@ -8,13 +8,13 @@ No API keys. No accounts. One wallet.
 
 - Node.js 22+
 - A wallet funded with a few dollars of USDC on Base mainnet
-- An Anthropic API key
+- An [OpenRouter](https://openrouter.ai) API key
 
 ## Setup
 
 ```bash
 cp .env.example .env
-# Fill in WALLET_PRIVATE_KEY and ANTHROPIC_API_KEY
+# Fill in WALLET_PRIVATE_KEY and OPENROUTER_API_KEY
 npm install
 npm start
 ```
@@ -22,7 +22,7 @@ npm start
 ## Usage
 
 ```
-Automaton agent — type a question or 'exit' to quit.
+Automaton agent (google/gemini-2.0-flash-001)
 Wallet: 0xYourWalletAddress
 
 > What's bitcoin doing today?
@@ -44,8 +44,8 @@ Each tool call is logged with its cost. The wallet pays automatically via x402 o
 
 ## What it can do
 
-| Question type | Tool used | Cost |
-|--------------|-----------|------|
+| Question type | Tool | Cost |
+|--------------|------|------|
 | Crypto prices | Pricor | $0.005 |
 | Stock quotes | Stockor | $0.004 |
 | Currency conversion | Rator | $0.003 |
@@ -62,8 +62,10 @@ Each tool call is logged with its cost. The wallet pays automatically via x402 o
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `WALLET_PRIVATE_KEY` | Yes | Private key of a Base mainnet wallet holding USDC |
-| `ANTHROPIC_API_KEY` | Yes | Anthropic API key for Claude |
-| `MODEL` | No | Claude model to use (default: claude-sonnet-4-6) |
+| `OPENROUTER_API_KEY` | Yes | OpenRouter API key |
+| `MODEL` | No | Any OpenRouter model with tool use support (default: `google/gemini-2.0-flash-001`) |
+
+Other models known to work well: `anthropic/claude-haiku-4-5`, `anthropic/claude-sonnet-4-6`, `openai/gpt-4o-mini`.
 
 ## Funding the wallet
 

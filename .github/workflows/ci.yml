@@ -24,4 +24,4 @@ jobs:
           node-version: 22
       - name: Install demo agent
         run: npm ci
-        working-directory: agents/demo
+        working-directory: agent
