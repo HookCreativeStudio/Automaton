@@ -22,7 +22,7 @@ npm start
 ## Usage
 
 ```
-Automaton agent (google/gemini-2.0-flash-001)
+Automaton agent (openai/gpt-4o-mini)
 Wallet: 0xYourWalletAddress
 
 > What's bitcoin doing today?
@@ -63,7 +63,7 @@ Each tool call is logged with its cost. The wallet pays automatically via x402 o
 |----------|----------|-------------|
 | `WALLET_PRIVATE_KEY` | Yes | Private key of a Base mainnet wallet holding USDC |
 | `OPENROUTER_API_KEY` | Yes | OpenRouter API key |
-| `MODEL` | No | Any OpenRouter model with tool use support (default: `google/gemini-2.0-flash-001`) |
+| `MODEL` | No | Any OpenRouter model with tool use support (default: `openai/gpt-4o-mini`) |
 
 Other models known to work well: `anthropic/claude-haiku-4-5`, `anthropic/claude-sonnet-4-6`, `openai/gpt-4o-mini`.
 

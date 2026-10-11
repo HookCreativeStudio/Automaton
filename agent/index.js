@@ -1,6 +1,9 @@
 import OpenAI from "openai";
 import { wrapFetchWithPayment } from "@x402/fetch";
-import { createWalletClient, http } from "viem";
+import { x402Client } from "@x402/core/client";
+import { toClientEvmSigner } from "@x402/evm";
+import { registerExactEvmScheme } from "@x402/evm/exact/client";
+import { createWalletClient, http, publicActions } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { base } from "viem/chains";
 import { tools } from "./tools.js";
@@ -9,20 +12,24 @@ import * as readline from "readline";
 if (!process.env.WALLET_PRIVATE_KEY) throw new Error("WALLET_PRIVATE_KEY is required");
 if (!process.env.OPENROUTER_API_KEY) throw new Error("OPENROUTER_API_KEY is required");
 
+const account = privateKeyToAccount(process.env.WALLET_PRIVATE_KEY);
 const wallet = createWalletClient({
-  account: privateKeyToAccount(process.env.WALLET_PRIVATE_KEY),
+  account,
   chain: base,
   transport: http(),
-});
+}).extend(publicActions);
 
-const fetch = wrapFetchWithPayment(globalThis.fetch, wallet);
+Object.assign(wallet, { address: account.address });
+const signer = toClientEvmSigner(wallet);
+const client = registerExactEvmScheme(new x402Client(), { signer });
+const fetch = wrapFetchWithPayment(globalThis.fetch, client);
 
 const ai = new OpenAI({
   apiKey: process.env.OPENROUTER_API_KEY,
   baseURL: "https://openrouter.ai/api/v1",
 });
 
-const MODEL = process.env.MODEL || "google/gemini-2.0-flash-001";
+const MODEL = process.env.MODEL || "openai/gpt-4o-mini";
 
 const SERVICES = {
   get_crypto_price:  { url: "https://pricor-x402.fly.dev/price",      cost: "$0.005" },
@@ -75,6 +82,7 @@ async function chat(messages) {
       try {
         content = JSON.stringify(await callService(call.function.name, args));
       } catch (err) {
+        console.error(`  [error] ${err.message}`);
         content = `Error: ${err.message}`;
       }
       messages.push({ role: "tool", tool_call_id: call.id, content });
@@ -101,5 +109,5 @@ function prompt() {
 }
 
 console.log(`Automaton agent (${MODEL})`);
-console.log(`Wallet: ${wallet.account.address}\n`);
+console.log(`Wallet: ${account.address}\n`);
 prompt();
