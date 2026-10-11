@@ -33,14 +33,22 @@ export async function extract(url, format = "markdown") {
   const html = await fetchHtml(url);
 
   const article = readabilityExtract(html, url);
-  if (!article) throw new Error("Could not extract readable content from URL");
 
-  const title = article.title || "";
-  const cleanText = article.textContent?.trim() || "";
+  let title, cleanText;
+  if (article) {
+    title = article.title || "";
+    cleanText = article.textContent?.trim() || "";
+  } else {
+    const $ = cheerio.load(html);
+    $("script, style, nav, footer, header").remove();
+    title = $("title").text().trim();
+    cleanText = $("body").text().replace(/\s+/g, " ").trim();
+    if (!cleanText) throw new Error("Could not extract readable content from URL");
+  }
   const wordCount = cleanText.split(/\s+/).filter(Boolean).length;
 
   if (format === "markdown") {
-    const $ = cheerio.load(article.content || html);
+    const $ = cheerio.load(article?.content || html);
     const markdown = turndown.turndown($.html());
     return { content: markdown, title, source_url: url, word_count: wordCount };
   }
