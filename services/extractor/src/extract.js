@@ -29,7 +29,7 @@ function readabilityExtract(html, url) {
   return reader.parse();
 }
 
-export async function extract(url, format) {
+export async function extract(url, format = "markdown") {
   const html = await fetchHtml(url);
 
   const article = readabilityExtract(html, url);
