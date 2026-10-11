@@ -36,7 +36,7 @@ const SERVICES = {
   get_stock_quote:   { url: "https://stockor-x402.fly.dev/stock",      cost: "$0.004" },
   get_exchange_rate: { url: "https://rator-x402.fly.dev/rate",         cost: "$0.003" },
   get_weather:       { url: "https://weathor-x402.fly.dev/weather",    cost: "$0.003" },
-  whois_lookup:      { url: "https://resolvor-x402.fly.dev/whois",     cost: "$0.004" },
+  whois_lookup:      { url: "https://resolvor-x402.fly.dev/resolve",   cost: "$0.004" },
   read_feed:         { url: "https://fetchor-x402.fly.dev/feed",       cost: "$0.002" },
   locate_ip:         { url: "https://locator-x402.fly.dev/locate",     cost: "$0.002" },
   get_trends:        { url: "https://trendor-x402.fly.dev/trends",     cost: "$0.015" },
@@ -71,10 +71,11 @@ async function chat(messages) {
     const msg = res.choices[0].message;
     messages.push(msg);
 
-    if (res.choices[0].finish_reason === "stop") return msg.content ?? "";
+    if (res.choices[0].finish_reason === "stop" || !msg.tool_calls?.length) {
+      return msg.content ?? "";
+    }
 
-    const calls = msg.tool_calls ?? [];
-    if (!calls.length) break;
+    const calls = msg.tool_calls;
 
     for (const call of calls) {
       const args = JSON.parse(call.function.arguments);
