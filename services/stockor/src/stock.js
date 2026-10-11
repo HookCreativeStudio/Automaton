@@ -2,9 +2,25 @@ import yahooFinance from "yahoo-finance2";
 
 yahooFinance.setGlobalConfig({ validation: { logErrors: false } });
 
+async function fetchQuote(symbol, retries = 3) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const q = await yahooFinance.quote(symbol);
+      if (q) return q;
+    } catch (err) {
+      if (i < retries - 1 && (err.message?.includes("Too Many") || err.message?.includes("429"))) {
+        await new Promise(r => setTimeout(r, 1000 * (i + 1)));
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw new Error(`Symbol not found: ${symbol}`);
+}
+
 export async function getStock(symbol) {
   const upper = symbol.toUpperCase();
-  const quote = await yahooFinance.quote(upper);
+  const quote = await fetchQuote(upper);
   if (!quote) throw new Error(`Symbol not found: ${symbol}`);
 
   const prev = quote.regularMarketPreviousClose ?? quote.chartPreviousClose ?? 0;
