@@ -18,14 +18,20 @@ const PRICE = process.env.PRICE || "$0.008";
 const facilitatorClient = new HTTPFacilitatorClient(facilitator);
 
 const resourceServer = new x402ResourceServer(facilitatorClient)
-  .register("eip155:8453", new ExactEvmScheme())
+  .register("eip155:8453",  new ExactEvmScheme())
+  .register("eip155:137",   new ExactEvmScheme())
+  .register("eip155:42161", new ExactEvmScheme())
   .registerExtension(bazaarResourceServerExtension);
 
 app.use(
   paymentMiddleware(
     {
       "POST /snap": {
-        accepts: [{ scheme: "exact", price: PRICE, network: "eip155:8453", payTo: PAY_TO }],
+        accepts: [
+          { scheme: "exact", price: PRICE, network: "eip155:8453",  payTo: PAY_TO },
+          { scheme: "exact", price: PRICE, network: "eip155:137",   payTo: PAY_TO },
+          { scheme: "exact", price: PRICE, network: "eip155:42161", payTo: PAY_TO },
+        ],
         description:
           "Use this to take a screenshot of any public URL. " +
           "Returns a base64-encoded PNG image of the rendered page. No account required.",
@@ -180,7 +186,11 @@ app.get("/.well-known/x402.json", (_req, res) => {
     resources: [{
       url: "https://snappor-x402.fly.dev/snap",
       description: "Full-page or viewport screenshot of any public URL using Chromium. Returns base64 PNG.",
-      accepts: [{ scheme: "exact", network: "eip155:8453", amount: "8000", asset: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", payTo: PAY_TO }],
+      accepts: [
+      { scheme: "exact", network: "eip155:8453",  amount: "8000", asset: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",  payTo: PAY_TO, maxTimeoutSeconds: 300 },
+      { scheme: "exact", network: "eip155:137",   amount: "8000", asset: "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",   payTo: PAY_TO, maxTimeoutSeconds: 300 },
+      { scheme: "exact", network: "eip155:42161", amount: "8000", asset: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831", payTo: PAY_TO, maxTimeoutSeconds: 300 },
+    ],
     }],
   });
 });

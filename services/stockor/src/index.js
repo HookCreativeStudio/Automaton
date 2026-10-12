@@ -18,14 +18,20 @@ const PRICE = process.env.PRICE || "$0.004";
 const facilitatorClient = new HTTPFacilitatorClient(facilitator);
 
 const resourceServer = new x402ResourceServer(facilitatorClient)
-  .register("eip155:8453", new ExactEvmScheme())
+  .register("eip155:8453",  new ExactEvmScheme())
+  .register("eip155:137",   new ExactEvmScheme())
+  .register("eip155:42161", new ExactEvmScheme())
   .registerExtension(bazaarResourceServerExtension);
 
 app.use(
   paymentMiddleware(
     {
       "POST /stock": {
-        accepts: [{ scheme: "exact", price: PRICE, network: "eip155:8453", payTo: PAY_TO }],
+        accepts: [
+          { scheme: "exact", price: PRICE, network: "eip155:8453",  payTo: PAY_TO },
+          { scheme: "exact", price: PRICE, network: "eip155:137",   payTo: PAY_TO },
+          { scheme: "exact", price: PRICE, network: "eip155:42161", payTo: PAY_TO },
+        ],
         description:
           "Use this to get the current price and key stats for any stock or ETF by ticker symbol. " +
           "Returns price, change, volume, market cap, P/E ratio, and 52-week range. No account required.",
@@ -168,7 +174,11 @@ app.get("/.well-known/x402.json", (_req, res) => {
     resources: [{
       url: "https://stockor-x402.fly.dev/stock",
       description: "Current stock and ETF price, change, volume, market cap, P/E ratio, and 52-week range by ticker symbol.",
-      accepts: [{ scheme: "exact", network: "eip155:8453", amount: "4000", asset: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", payTo: PAY_TO, maxTimeoutSeconds: 300 }],
+      accepts: [
+      { scheme: "exact", network: "eip155:8453",  amount: "4000", asset: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",  payTo: PAY_TO, maxTimeoutSeconds: 300 },
+      { scheme: "exact", network: "eip155:137",   amount: "4000", asset: "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",   payTo: PAY_TO, maxTimeoutSeconds: 300 },
+      { scheme: "exact", network: "eip155:42161", amount: "4000", asset: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831", payTo: PAY_TO, maxTimeoutSeconds: 300 },
+    ],
       outputSchema: { type: "object", properties: { symbol: { type: "string" }, name: { type: "string" }, price: { type: "number" }, change: { type: "number" }, change_percent: { type: "number" }, volume: { type: "number" }, market_cap: { type: "number" } } },
       tags: ["stocks", "equities", "finance", "market-data", "etf"],
     }],
