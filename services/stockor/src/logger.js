@@ -1,26 +1,25 @@
-import mongoose from "mongoose";
 import { decodePaymentResponseHeader } from "@x402/core/http";
 
-const schema = new mongoose.Schema({
-  ts:          { type: Date, default: Date.now, index: true },
-  service:     String,
-  route:       String,
-  payer:       String,
-  tx:          String,
-  duration_ms: Number,
-  status:      Number,
-  params:      mongoose.Schema.Types.Mixed,
-  error:       String,
-}, { collection: "service_logs" });
-
-const Log = mongoose.model("ServiceLog", schema);
-let ready = false;
+let mongoose = null;
+let Log = null;
 
 async function ensureConnected() {
-  if (!ready && process.env.MONGO_URI) {
-    await mongoose.connect(process.env.MONGO_URI, { dbName: "automaton" });
-    ready = true;
-  }
+  if (Log || !process.env.MONGO_URI) return;
+  const { default: mg } = await import("mongoose");
+  mongoose = mg;
+  const schema = new mongoose.Schema({
+    ts:          { type: Date, default: Date.now, index: true },
+    service:     String,
+    route:       String,
+    payer:       String,
+    tx:          String,
+    duration_ms: Number,
+    status:      Number,
+    params:      mongoose.Schema.Types.Mixed,
+    error:       String,
+  }, { collection: "service_logs" });
+  Log = mongoose.model("ServiceLog", schema);
+  await mongoose.connect(process.env.MONGO_URI, { dbName: "automaton" });
 }
 
 export function requestLogger(service) {
@@ -38,7 +37,7 @@ export function requestLogger(service) {
         }
       } catch {}
       ensureConnected()
-        .then(() => Log.create({
+        .then(() => Log?.create({
           service, route: req.path,
           payer, tx,
           duration_ms: Date.now() - start,

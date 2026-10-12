@@ -1,6 +1,9 @@
-import yahooFinance from "yahoo-finance2";
+import YahooFinance from "yahoo-finance2";
 
-yahooFinance.setGlobalConfig({ validation: { logErrors: false } });
+const yahooFinance = new YahooFinance({
+  validation: { logErrors: false },
+  suppressNotices: ["yahooSurvey"],
+});
 
 async function fetchQuote(symbol, retries = 3) {
   for (let i = 0; i < retries; i++) {
